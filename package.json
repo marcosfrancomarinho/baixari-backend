@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "main": "src/main.ts",
+  "author":"marcosfrancomarinho",
   "scripts": {
     "start": "node dist/bundle.cjs",
     "dev": "tsx --watch src/main.ts",
