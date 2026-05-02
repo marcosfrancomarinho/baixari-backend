@@ -12,7 +12,7 @@ export class CertificateFileDownloaderUseCase {
   public async dowload(input: InputCertificate): Promise<OutputCertificate> {
     const certificate = Certificate.create(input.number);
     const path = await this.fileExistenceChecker.checkCertificate(certificate);
-    const stream = await this.zipServices.generateCertificate(path);
+    const stream = await this.zipServices.generate(path);
     return { stream };
   }
 }

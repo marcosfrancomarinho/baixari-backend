@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import { join } from 'node:path';
 import type { Certificate } from '../domain/entities/certificate.js';
-import { Path } from '../domain/entities/path.js';
+import { Path } from '../domain/valuesobject/path.js';
 import type { Protocol } from '../domain/entities/protocol.js';
 import type { FileExistenceChecker } from '../domain/gateway/file.existence.checker.js';
 

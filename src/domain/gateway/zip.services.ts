@@ -1,7 +1,6 @@
-import type { Path } from '../entities/path.js';
 import { Readable } from 'stream';
+import type { Path } from '../valuesobject/path.js';
 
 export interface ZipServices {
-  generateProtocol(path: Path): Promise<Readable>;
-  generateCertificate(path: Path): Promise<Readable>;
+  generate(path: Path): Promise<Readable>;
 }

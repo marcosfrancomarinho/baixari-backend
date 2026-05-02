@@ -12,7 +12,7 @@ export class ProtocolFileDownloaderUseCase {
   public async dowload(input: InputProtocol): Promise<OutputProtocol> {
     const protocol = Protocol.create(input.number);
     const path = await this.fileExistenceChecker.checkProtocol(protocol);
-    const stream = await this.zipServices.generateProtocol(path);
+    const stream = await this.zipServices.generate(path);
     return { stream };
   }
 }
