@@ -12,7 +12,9 @@ export class ProtocolFileDownloaderController {
 
       response.setHeader('Content-Type', 'application/zip');
       response.setHeader('Content-Disposition', `attachment; filename=protocol_${number}.zip`);
-
+      response.setHeader('Cache-Control', 'no-store');
+      response.setHeader('Content-Transfer-Encoding', 'binary');
+      
       request.on('close', () => {
         if (!response.writableEnded) {
           output.stream.destroy(new Error('Cliente desconectado'));

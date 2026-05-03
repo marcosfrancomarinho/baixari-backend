@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { pipeline } from 'stream/promises';
 
 export class CertificateFileDownloaderController {
-  public constructor(private  certificateFileDownloaderUseCase: CertificateFileDownloaderUseCase) {}
+  public constructor(private certificateFileDownloaderUseCase: CertificateFileDownloaderUseCase) {}
 
   public async execute(request: Request, response: Response): Promise<void> {
     try {
@@ -11,7 +11,9 @@ export class CertificateFileDownloaderController {
       const output = await this.certificateFileDownloaderUseCase.dowload({ number });
       response.setHeader('Content-Type', 'application/zip');
       response.setHeader('Content-Disposition', `attachment; filename=certificate_${number}.zip`);
-
+      response.setHeader('Cache-Control', 'no-store');
+      response.setHeader('Content-Transfer-Encoding', 'binary');
+      
       request.on('close', () => {
         if (!response.writableEnded) {
           output.stream.destroy(new Error('Cliente desconectado'));
