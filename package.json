@@ -3,17 +3,18 @@
   "version": "1.0.0",
   "type": "module",
   "main": "src/main.ts",
-  "author":"marcosfrancomarinho",
+  "author": "marcosfrancomarinho",
   "scripts": {
-    "start": "node dist/bundle.cjs",
-    "dev": "tsx --watch src/main.ts",
-    "build": "node esbuild.config.cjs",
+    "start": "node --enable-source-maps dist/bundle.cjs",
+    "dev": "node kit-dev/build/dev.cjs",
+    "build": "node kit-dev/build/esbuild.config.cjs",
     "type": "tsc --watch --noEmit"
   },
   "dependencies": {
     "archiver": "^7.0.1",
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@types/archiver": "^7.0.0",

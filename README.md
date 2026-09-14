@@ -65,3 +65,25 @@ Centralizar as regras de localização, validação e compactação de arquivos 
 ## 👨‍💻 Autor
 
 Marcos Marinho
+
+## Download ZIP ou PDF
+
+O cliente escolhe o formato pelo parametro `format` na query string:
+
+```http
+GET /protocol/123?format=pdf
+GET /protocol/123?format=zip
+GET /certificate/123?format=pdf
+GET /certificate/123?format=zip
+```
+
+Sem `format`, o retorno continua sendo ZIP. Outros valores retornam HTTP 400.
+Nos casos de uso, o input aceita `{ number: 123, format: 'pdf' }`.
+
+O formato PDF retorna o arquivo original quando ha apenas um PDF. Quando ha
+varios, une suas paginas em um unico PDF, percorrendo a pasta e subpastas em
+ordem de nome (ordenacao numerica). Arquivos de outros formatos sao ignorados.
+Uma pasta sem PDFs retorna HTTP 404. A uniao e feita em memoria; o PDF unido
+nao preserva as assinaturas digitais dos arquivos originais.
+
+Testes: `node --import tsx --test tests/download.test.ts`.

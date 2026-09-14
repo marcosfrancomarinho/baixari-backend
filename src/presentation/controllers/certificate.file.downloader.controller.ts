@@ -1,6 +1,7 @@
 import type { CertificateFileDownloaderUseCase } from '../../app/usecase/certificate.file.downloader.usecase.js';
 import type { Request, Response } from 'express';
 import { pipeline } from 'stream/promises';
+import { InvalidDownloadFormatError, parseDownloadFormat } from '../../app/dto/download.format.js';
 
 export class CertificateFileDownloaderController {
   public constructor(private certificateFileDownloaderUseCase: CertificateFileDownloaderUseCase) {}
@@ -8,9 +9,10 @@ export class CertificateFileDownloaderController {
   public async execute(request: Request, response: Response): Promise<void> {
     try {
       const number = Number.parseInt(request.params.number as string);
-      const output = await this.certificateFileDownloaderUseCase.dowload({ number });
-      response.setHeader('Content-Type', 'application/zip');
-      response.setHeader('Content-Disposition', `attachment; filename=certificate_${number}.zip`);
+      const format = parseDownloadFormat(request.query.format);
+      const output = await this.certificateFileDownloaderUseCase.dowload({ number, format });
+      response.setHeader('Content-Type', output.contentType);
+      response.setHeader('Content-Disposition', `attachment; filename=certificate_${number}.${output.extension}`);
       response.setHeader('Cache-Control', 'no-store');
       response.setHeader('Content-Transfer-Encoding', 'binary');
       
@@ -33,7 +35,7 @@ export class CertificateFileDownloaderController {
       await pipeline(output.stream, response);
     } catch (error) {
       if (!response.headersSent) {
-        response.status(404).json({
+        response.status(error instanceof InvalidDownloadFormatError ? 400 : 404).json({
           error: (error as Error).message,
         });
       }

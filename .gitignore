@@ -6,4 +6,4 @@ dist/
 .idea/
 .DS_Store
 *.tsbuildinfo
-files/
+kit-dev/build/.cache/
