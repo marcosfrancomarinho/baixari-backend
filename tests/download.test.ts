@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import express from 'express';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { FsFileExistenceChecker } from '../src/infra/fs.file.existence.checker.js';
 import { ArchiverZipServices } from '../src/infra/archiver.zip.services.js';
 import { PdfLibServices } from '../src/infra/pdf.lib.services.js';
@@ -36,6 +36,14 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
     await mkdir(join(root, '1', 'nested'), { recursive: true });
     await mkdir(join(root, '2'));
     await mkdir(join(root, '3'));
+    await mkdir(join(root, '4'));
+    await mkdir(join(root, '5'));
+    const png = await readFile(new URL('./fixtures/image.png', import.meta.url));
+    const jpg = await readFile(new URL('./fixtures/image.jpg', import.meta.url));
+    await writeFile(join(root, '1', '3.PNG'), png);
+    await writeFile(join(root, '1', 'nested', '11.JPEG'), jpg);
+    await writeFile(join(root, '4', 'only.jpg'), jpg);
+    await writeFile(join(root, '5', 'only.png'), png);
     const first = await PDFDocument.create();
     first.addPage([200, 300]);
     const bytes = await first.save();
@@ -62,7 +70,24 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
       assert.equal(response.headers.get('content-type'), 'application/pdf');
       assert.equal(response.headers.get('content-disposition'), `attachment; filename=${route}_1.pdf`);
       const merged = await PDFDocument.load(await response.arrayBuffer());
-      assert.deepEqual(merged.getPages().map(page => page.getWidth()), [200, 400, 600]);
+      assert.deepEqual(merged.getPages().map(page => page.getSize()), [
+        { width: 200, height: 300 },
+        { width: 40, height: 20 },
+        { width: 400, height: 500 },
+        { width: 600, height: 700 },
+        { width: 40, height: 20 },
+      ]);
+      for (const number of [4, 5]) {
+        const imageResponse = await fetch(`${base}/${number}?format=pdf`);
+        assert.equal(imageResponse.status, 200);
+        assert.equal(imageResponse.headers.get('content-type'), 'application/pdf');
+        const imagePdf = await PDFDocument.load(await imageResponse.arrayBuffer());
+        assert.equal(imagePdf.getPageCount(), 1);
+        assert.deepEqual(imagePdf.getPage(0).getSize(), { width: 40, height: 20 });
+        assert.equal(imagePdf.getPage(0).node.Resources()?.lookupMaybe(
+          PDFName.of('XObject'), PDFDict,
+        )?.keys().length, 1);
+      }
       const single = await fetch(`${base}/3?format=pdf`);
       assert.deepEqual(Buffer.from(await single.arrayBuffer()), Buffer.from(bytes));
       for (const query of ['format=rar', 'format=pdf&format=zip', 'format=']) {

@@ -80,10 +80,12 @@ GET /certificate/123?format=zip
 Sem `format`, o retorno continua sendo ZIP. Outros valores retornam HTTP 400.
 Nos casos de uso, o input aceita `{ number: 123, format: 'pdf' }`.
 
-O formato PDF retorna o arquivo original quando ha apenas um PDF. Quando ha
-varios, une suas paginas em um unico PDF, percorrendo a pasta e subpastas em
-ordem de nome (ordenacao numerica). Arquivos de outros formatos sao ignorados.
-Uma pasta sem PDFs retorna HTTP 404. A uniao e feita em memoria; o PDF unido
+O formato PDF une PDFs e imagens JPG, JPEG e PNG em um unico PDF, percorrendo
+a pasta e subpastas em ordem de nome (ordenacao numerica). Cada imagem ocupa
+uma pagina com suas proporcoes originais. Pastas contendo apenas imagens tambem
+sao aceitas. Quando ha apenas um PDF e nenhuma imagem, retorna o PDF original.
+Arquivos de outros formatos sao ignorados.
+Uma pasta sem PDFs ou imagens suportadas retorna HTTP 404. A uniao e feita em memoria; o PDF unido
 nao preserva as assinaturas digitais dos arquivos originais.
 
 Testes: `node --import tsx --test tests/download.test.ts`.
