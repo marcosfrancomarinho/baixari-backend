@@ -1,13 +1,13 @@
-import type { FilesInput } from '../app/input/files.input.js';
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { PDFDocument } from 'pdf-lib';
 import type { PdfServices } from '../app/contracts/pdf.services.js';
+import type { DocumentFiles } from '../app/model/document.files.js';
 
 export class PdfLibServices implements PdfServices {
-  public async generate(input: FilesInput): Promise<Readable> {
-    const files = input.files;
+  public async generate(documentFiles: DocumentFiles): Promise<Readable> {
+    const { files } = documentFiles;
     if (files.length === 1 && extname(files[0]).toLowerCase() === '.pdf') {
       return Readable.from([await readFile(files[0])]);
     }

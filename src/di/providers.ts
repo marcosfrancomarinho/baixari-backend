@@ -1,15 +1,13 @@
 import { TextExtractionUseCase } from '../app/usecase/text.extraction.usecase.js';
 import { AppConfig, createApplicationContext } from '../../kit-dev/di/container.js';
-import { CertificateFileDownloaderUseCase } from '../app/usecase/certificate.file.downloader.usecase.js';
-import { ProtocolFileDownloaderUseCase } from '../app/usecase/protocol.file.downloader.usecase.js';
+import { FileDownloaderUseCase } from '../app/usecase/file.downloader.usecase.js';
 import { FileSystemGateway } from '../app/contracts/file.system.gateway.js';
 import { ZipServices } from '../app/contracts/zip.services.js';
 import { ArchiverZipServices } from '../infra/archiver.zip.services.js';
 import { PdfServices } from '../app/contracts/pdf.services.js';
 import { PdfLibServices } from '../infra/pdf.lib.services.js';
 import { FsFileSystemGateway } from '../infra/fs.file.system.gateway.js';
-import { CertificateFileDownloaderController } from '../presentation/controllers/certificate.file.downloader.controller.js';
-import { ProtocolFileDownloaderController } from '../presentation/controllers/protocol.file.downloader.controller.js';
+import { FileDownloaderController } from '../presentation/controllers/file.downloader.controller.js';
 import { Routers } from '../presentation/routers/routers.js';
 import { PATH_CERTIFICATE, PATH_PROTOCOL } from './tokens.js';
 import { resolve } from 'node:path';
@@ -19,6 +17,7 @@ import { PdfDownloadOutputStrategy } from '../app/strategy/pdf.download.output.s
 import { TextExtractionServices } from '../app/contracts/text.extraction.services.js';
 import { LocalTextExtractionServices } from '../infra/local.text.extraction.services.js';
 import { TextExtractionController } from '../presentation/controllers/text.extraction.controller.js';
+import { DocumentFilesFinder } from '../app/services/document.files.finder.js';
 
 const providers = new AppConfig();
 
@@ -32,10 +31,9 @@ providers
   .useClass(ZipDownloadOutputStrategy)
   .useClass(PdfDownloadOutputStrategy)
   .useClass(DownloadOutputStrategyFactory)
-  .useClass(ProtocolFileDownloaderUseCase)
-  .useClass(CertificateFileDownloaderUseCase)
-  .useClass(ProtocolFileDownloaderController)
-  .useClass(CertificateFileDownloaderController)
+  .useClass(DocumentFilesFinder)
+  .useClass(FileDownloaderUseCase)
+  .useClass(FileDownloaderController)
   .useClass(TextExtractionUseCase)
   .useClass(TextExtractionController)
   .useClass(Routers);

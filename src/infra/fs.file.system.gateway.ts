@@ -1,19 +1,18 @@
-import type { DocumentInput } from '../app/input/document.input.js';
-import { DirectoryInput } from '../app/input/directory.input.js';
 import { stat, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FileSystemGateway } from '../app/contracts/file.system.gateway.js';
+import type { DocumentKind } from '../app/request/document.request.js';
 
 export class FsFileSystemGateway implements FileSystemGateway {
   public constructor(private pathCertificate: string, private pathProtocol: string) {}
 
-  public getBasePath(input: DocumentInput): string {
-    return input.kind === 'protocol' ? this.pathProtocol : this.pathCertificate;
+  public getBasePath(kind: DocumentKind): string {
+    return kind === 'protocol' ? this.pathProtocol : this.pathCertificate;
   }
 
-  public async isDirectory(input: DirectoryInput): Promise<boolean> {
+  public async isDirectory(path: string): Promise<boolean> {
     try {
-      return (await stat(input.path)).isDirectory();
+      return (await stat(path)).isDirectory();
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'ENOENT' || code === 'ENOTDIR') return false;
@@ -21,8 +20,8 @@ export class FsFileSystemGateway implements FileSystemGateway {
     }
   }
 
-  public async listFiles(input: DirectoryInput): Promise<string[]> {
-    return this.listDirectory(input.path);
+  public async listFiles(path: string): Promise<string[]> {
+    return this.listDirectory(path);
   }
 
   private async listDirectory(path: string): Promise<string[]> {

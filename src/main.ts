@@ -5,15 +5,15 @@ import { Routers } from './presentation/routers/routers.js';
 
 function main() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const port = process.env.PORT || 3000;
   app.use(cors());
   app.use(express.json());
-  const routers = container.get(Routers)
+  const routers = container.get(Routers);
 
   routers.setup(app);
- 
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
   });
 }
 

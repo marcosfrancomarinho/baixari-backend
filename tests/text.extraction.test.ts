@@ -1,5 +1,3 @@
-import { DirectoryInput } from '../src/app/input/directory.input.js';
-import { FilesInput } from '../src/app/input/files.input.js';
 import { FsFileSystemGateway } from '../src/infra/fs.file.system.gateway.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -34,8 +32,10 @@ test('Text extraction reads native PDF, PNG, JPEG, scanned and mixed PDF pages l
     mixed.drawImage(embedded, { x: 0, y: 0, width: 700, height: 120 });
     pdf.addPage();
     await writeFile(join(root, '1.pdf'), await pdf.save());
+    const gateway = new FsFileSystemGateway(root, root);
+    const documentFiles = { directory: root, files: await gateway.listFiles(root) };
     const pages = [];
-    for await (const page of new LocalTextExtractionServices().extract(FilesInput.create(DirectoryInput.create(root), await new FsFileSystemGateway(root, root).listFiles(DirectoryInput.create(root))))) pages.push(page);
+    for await (const page of new LocalTextExtractionServices().extract(documentFiles)) pages.push(page);
     assert.equal(pages.length, 6);
     assert.match(pages[0].text, /Texto original do PDF 67890/);
     assert.equal(pages.filter(page => page.text.includes('DOCUMENTO TESTE 12345')).length, 4);
@@ -44,7 +44,10 @@ test('Text extraction reads native PDF, PNG, JPEG, scanned and mixed PDF pages l
     assert.equal(pages[0].file, '1.pdf');
     assert.equal(pages[4].file, '2.png');
     await writeFile(join(root, '0.pdf'), 'invalid pdf');
-    await assert.rejects(new LocalTextExtractionServices().extract(FilesInput.create(DirectoryInput.create(root), await new FsFileSystemGateway(root, root).listFiles(DirectoryInput.create(root)))).next(), TextExtractionError);
+    await assert.rejects(
+      new LocalTextExtractionServices().extract({ directory: root, files: await gateway.listFiles(root) }).next(),
+      TextExtractionError,
+    );
   } finally {
     assert.ok(root.startsWith(join(tmpdir(), 'baixari-word-')));
     await rm(root, { recursive: true, force: true });

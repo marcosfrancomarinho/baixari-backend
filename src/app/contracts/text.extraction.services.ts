@@ -1,6 +1,7 @@
-import type { FilesInput } from '../input/files.input.js';
+import type { DocumentFiles } from '../model/document.files.js';
+
 export interface TextExtractionServices {
-  extract(input: FilesInput, signal?: AbortSignal): AsyncGenerator<ExtractedPage>;
+  extract(documentFiles: DocumentFiles, signal?: AbortSignal): AsyncGenerator<ExtractedPage>;
 }
 
 export interface ExtractedPage {

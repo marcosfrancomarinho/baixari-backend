@@ -7,6 +7,7 @@ import { TextExtractionController } from '../src/presentation/controllers/text.e
 import type { TextExtractionServices } from '../src/app/contracts/text.extraction.services.js';
 import { extractText, createWord } from '../examples/text-stream-client.js';
 import JSZip from 'jszip';
+import { DocumentFilesFinder } from '../src/app/services/document.files.finder.js';
 
 test('HTTP sends pages before extraction finishes, reports errors and stops after disconnect', async () => {
   let released = false;
@@ -23,11 +24,12 @@ test('HTTP sends pages before extraction finishes, reports errors and stops afte
     },
   };
   const checker = {
-    getBasePath(input) { return input.kind; },
-    async isDirectory(path) { return !path.path.endsWith('999'); },
+    getBasePath(kind) { return kind; },
+    async isDirectory(path) { return !path.endsWith('999'); },
     async listFiles() { return ['document.pdf']; },
   };
-  const controller = new TextExtractionController(new TextExtractionUseCase(checker, services));
+  const finder = new DocumentFilesFinder(checker);
+  const controller = new TextExtractionController(new TextExtractionUseCase(finder, services));
   const app = express();
   app.get('/:kind/:number/text', (req, res) => controller.execute(req, res, req.params.kind as 'protocol' | 'certificate'));
   const server = app.listen(0, '127.0.0.1');

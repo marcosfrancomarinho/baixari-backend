@@ -1,6 +1,6 @@
-import type { FilesInput } from '../input/files.input.js';
-import { Readable } from 'stream';
+import type { Readable } from 'node:stream';
+import type { DocumentFiles } from '../model/document.files.js';
 
 export interface ZipServices {
-  generate(input: FilesInput): Promise<Readable>;
+  generate(documentFiles: DocumentFiles): Promise<Readable>;
 }

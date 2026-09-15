@@ -1,11 +1,10 @@
-import type { FilesInput } from '../app/input/files.input.js';
 import { PassThrough, Readable } from 'stream';
 import type { ZipServices } from '../app/contracts/zip.services.js';
+import type { DocumentFiles } from '../app/model/document.files.js';
 import archiver from 'archiver';
 
 export class ArchiverZipServices implements ZipServices {
-  public async generate(input: FilesInput): Promise<Readable> {
-    const dir = input.directory.path;
+  public async generate(documentFiles: DocumentFiles): Promise<Readable> {
     const archive = archiver('zip', {
       zlib: { level: 9 },
     });
@@ -21,7 +20,7 @@ export class ArchiverZipServices implements ZipServices {
       }
     });
     archive.pipe(stream);
-    archive.directory(dir, false);
+    archive.directory(documentFiles.directory, false);
     archive.finalize();
     return stream;
   }

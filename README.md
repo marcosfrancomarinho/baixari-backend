@@ -5,7 +5,7 @@ Backend em **Node.js + TypeScript** responsável por localizar arquivos, validar
 ## ✨ Principais pontos
 
 - API HTTP com Express
-- Casos de uso separados para protocolos e certidões
+- Fluxo compartilhado para protocolos e certidões
 - Verificação de existência de arquivos
 - Compactação com Archiver
 - Organização em aplicação, infraestrutura e apresentação
@@ -27,41 +27,34 @@ Backend em **Node.js + TypeScript** responsável por localizar arquivos, validar
 src/
 ├── app/
 │   ├── contracts/
-│   ├── dto/
+│   ├── errors/
 │   ├── factory/
-│   ├── input/
+│   ├── model/
+│   ├── request/
+│   ├── services/
 │   ├── strategy/
 │   └── usecase/
 ├── di/
 ├── infra/
 ├── presentation/
 │   ├── controllers/
+│   ├── http/
 │   └── routers/
 └── main.ts
 ```
 
-Os casos de uso recebem os dados da requisição e criam objetos validados em
-`app/input` antes de chamar os gateways:
+`DocumentRequest` é a única fronteira de validação. Ele recebe os valores brutos
+da requisição HTTP, valida número, tipo e formato, resolve o diretório e seleciona
+os arquivos compatíveis com ZIP, PDF ou texto. O controller apenas cria esse
+objeto e chama o caso de uso; o caso de uso não repete a validação.
 
-- `DocumentInput`: número positivo e seguro, e tipo de documento válido.
-- `DirectoryInput`: caminho válido e não vazio.
-- `FilesInput`: diretório e lista não vazia de caminhos válidos.
+O objeto possui construtor privado, fábricas `forDownload()` e `forText()` e dados
+imutáveis. Entradas inválidas retornam HTTP 400. Pastas ou arquivos compatíveis
+inexistentes retornam HTTP 404. Falhas inesperadas retornam HTTP 500.
 
-Esses objetos têm construtores privados, criação por `create()` e dados imutáveis.
-`FileSystemGateway` recebe `DocumentInput` ou `DirectoryInput`; os serviços de ZIP,
-PDF e extração de texto recebem `FilesInput`.
-
-As validações ficam nos casos de uso; os contratos em `app/contracts` permitem
-injetar os serviços de infraestrutura sem acessá-los diretamente nos controllers.
-
-Os próprios inputs validam números inteiros
-positivos e seguros, parâmetros de rota contendo apenas dígitos, caminhos não
-vazios e o tipo de documento. Entradas inválidas na API retornam HTTP 400;
-arquivos ou pastas inexistentes continuam retornando HTTP 404. Cada caso de uso
-valida o caminho, a existência da pasta, a presença de arquivos e os formatos
-aceitos, consultando diretamente `FileSystemGateway`, sem chamar outro caso de uso.
-`FsFileSystemGateway` apenas informa o caminho base, consulta o diretório e lista
-os arquivos recursivamente. Os geradores de PDF e OCR recebem a lista já validada.
+`DocumentFilesFinder` concentra a consulta ao sistema de arquivos. O mesmo
+`FileDownloaderUseCase` atende protocolos e certidões, e as strategies continuam
+responsáveis pela geração de ZIP ou PDF.
 
 ## ▶️ Desenvolvimento
 
@@ -102,7 +95,6 @@ GET /certificate/123?format=zip
 ```
 
 Sem `format`, o retorno continua sendo ZIP. Outros valores retornam HTTP 400.
-Nos casos de uso, o input aceita `{ number: 123, format: 'pdf' }`.
 
 O formato PDF une PDFs e imagens JPG, JPEG e PNG em um unico PDF, percorrendo
 a pasta e subpastas em ordem de nome (ordenacao numerica). Cada imagem ocupa
@@ -189,9 +181,12 @@ não gera Word.
 
 ### Organização
 
+- `DocumentRequest`: validação única dos valores recebidos e seleção dos arquivos.
+- `DocumentFilesFinder`: localização do diretório e leitura dos arquivos.
+- `FileDownloaderController`: resposta HTTP compartilhada por protocolo e certidão.
+- `FileDownloaderUseCase`: coordenação dos downloads ZIP e PDF.
 - `TextExtractionController`: resposta HTTP, eventos NDJSON e desconexão.
 - `TextExtractionUseCase`: coordenação da extração progressiva.
-- Cada caso de uso consulta o gateway e valida a pasta e os arquivos antes de processar.
 - `TextExtractionServices`: contrato de extração de páginas.
 - `LocalTextExtractionServices`: leitura de PDF e OCR local em português.
 - As strategies de download permanecem responsáveis por ZIP e PDF.

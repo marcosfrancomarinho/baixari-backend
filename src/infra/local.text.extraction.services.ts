@@ -1,4 +1,4 @@
-import type { FilesInput } from '../app/input/files.input.js';
+import type { DocumentFiles } from '../app/model/document.files.js';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { createRequire } from 'node:module';
@@ -12,10 +12,9 @@ import { TextExtractionError, type TextExtractionServices, type ExtractedPage } 
 const requireAsset = createRequire(resolve('package.json'));
 
 export class LocalTextExtractionServices implements TextExtractionServices {
-  public async *extract(input: FilesInput, signal?: AbortSignal): AsyncGenerator<ExtractedPage> {
+  public async *extract(documentFiles: DocumentFiles, signal?: AbortSignal): AsyncGenerator<ExtractedPage> {
     signal?.throwIfAborted();
-    const root = input.directory.path;
-    const files = input.files;
+    const { directory: root, files } = documentFiles;
     let worker: Worker | undefined;
     const recognize = async (image: Buffer): Promise<string> => {
       signal?.throwIfAborted();

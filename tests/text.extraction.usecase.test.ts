@@ -1,33 +1,41 @@
 import { join } from 'node:path';
-import { InvalidInputError } from '../src/app/input/invalid.input.error.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { TextExtractionUseCase } from '../src/app/usecase/text.extraction.usecase.js';
+import { DocumentRequest } from '../src/app/request/document.request.js';
+import { RequestValidationError } from '../src/app/request/request.validation.error.js';
+import { DocumentFilesFinder } from '../src/app/services/document.files.finder.js';
 
 test('text use case chooses the correct directory, validates input and forwards cancellation', async () => {
   const calls: string[] = [];
   const cancellation = new AbortController();
-  const usecase = new TextExtractionUseCase({
-    getBasePath(input) { return input.kind; },
-    async isDirectory(path) { calls.push(path.path); return true; },
+  const finder = new DocumentFilesFinder({
+    getBasePath(kind) { return kind; },
+    async isDirectory(path) { calls.push(path); return true; },
     async listFiles() { return ['document.pdf']; },
-  }, {
-    async *extract(input, signal) {
-      assert.deepEqual(input.files, ['document.pdf']);
+  });
+  const usecase = new TextExtractionUseCase(finder, {
+    async *extract(documentFiles, signal) {
+      assert.deepEqual(documentFiles.files, ['document.pdf']);
       assert.equal(signal, cancellation.signal);
-      yield { file: input.directory.path, page: 1, totalPages: 1, text: 'text' };
+      yield { file: documentFiles.directory, page: 1, totalPages: 1, text: 'text' };
     },
   });
   for (const kind of ['protocol', 'certificate'] as const) {
-    const pages = await usecase.execute({ kind, number: 123 }, cancellation.signal);
+    const request = DocumentRequest.forText({ kind, number: 123 });
+    const pages = await usecase.execute(request, cancellation.signal);
     assert.equal((await pages.next()).value?.file, join(kind, '123'));
     await pages.return(undefined);
   }
   assert.deepEqual(calls, [join('protocol', '123'), join('certificate', '123')]);
   for (const number of [NaN, 0, -1, 1.5, Infinity]) {
-    await assert.rejects(usecase.execute({ kind: 'protocol', number }), InvalidInputError);
+    assert.throws(
+      () => DocumentRequest.forText({ kind: 'protocol', number }),
+      RequestValidationError,
+    );
   }
   cancellation.abort();
-  await assert.rejects(usecase.execute({ kind: 'protocol', number: 123 }, cancellation.signal), { name: 'AbortError' });
+  const request = DocumentRequest.forText({ kind: 'protocol', number: 123 });
+  await assert.rejects(usecase.execute(request, cancellation.signal), { name: 'AbortError' });
   assert.equal(calls.length, 2);
 });

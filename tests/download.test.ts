@@ -9,16 +9,16 @@ import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { FsFileSystemGateway } from '../src/infra/fs.file.system.gateway.js';
 import { ArchiverZipServices } from '../src/infra/archiver.zip.services.js';
 import { PdfLibServices } from '../src/infra/pdf.lib.services.js';
-import { ProtocolFileDownloaderUseCase } from '../src/app/usecase/protocol.file.downloader.usecase.js';
-import { CertificateFileDownloaderUseCase } from '../src/app/usecase/certificate.file.downloader.usecase.js';
-import { ProtocolFileDownloaderController } from '../src/presentation/controllers/protocol.file.downloader.controller.js';
-import { CertificateFileDownloaderController } from '../src/presentation/controllers/certificate.file.downloader.controller.js';
+import { FileDownloaderUseCase } from '../src/app/usecase/file.downloader.usecase.js';
+import { FileDownloaderController } from '../src/presentation/controllers/file.downloader.controller.js';
 import { Routers } from '../src/presentation/routers/routers.js';
 import { DownloadOutputStrategyFactory } from '../src/app/factory/download.output.strategy.factory.js';
 import { ZipDownloadOutputStrategy } from '../src/app/strategy/zip.download.output.strategy.js';
 import { PdfDownloadOutputStrategy } from '../src/app/strategy/pdf.download.output.strategy.js';
 import { LocalTextExtractionServices } from '../src/infra/local.text.extraction.services.js';
 import { TextExtractionController } from '../src/presentation/controllers/text.extraction.controller.js';
+import { DocumentFilesFinder } from '../src/app/services/document.files.finder.js';
+import { DocumentRequest } from '../src/app/request/document.request.js';
 
 test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baixari-test-'));
@@ -30,18 +30,16 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
     new PdfDownloadOutputStrategy(pdf),
   );
   const app = express();
-  for (const usecase of [
-    new ProtocolFileDownloaderUseCase(checker, factory),
-    new CertificateFileDownloaderUseCase(checker, factory),
-  ]) {
-    for (const number of [NaN, 0, -1, 1.5, Infinity]) {
-      await assert.rejects(usecase.dowload({ number }), /invalido/);
-    }
+  for (const number of [NaN, 0, -1, 1.5, Infinity]) {
+    assert.throws(
+      () => DocumentRequest.forDownload({ number, kind: 'protocol', format: undefined }),
+      /invalido/,
+    );
   }
+  const finder = new DocumentFilesFinder(checker);
   new Routers(
-    new ProtocolFileDownloaderController(new ProtocolFileDownloaderUseCase(checker, factory)),
-    new CertificateFileDownloaderController(new CertificateFileDownloaderUseCase(checker, factory)),
-    new TextExtractionController(new TextExtractionUseCase(checker, new LocalTextExtractionServices())),
+    new FileDownloaderController(new FileDownloaderUseCase(finder, factory)),
+    new TextExtractionController(new TextExtractionUseCase(finder, new LocalTextExtractionServices())),
   ).setup(app);
   const server = app.listen(0, '127.0.0.1');
   try {
