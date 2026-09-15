@@ -1,121 +1,82 @@
-# 🗜️ Baixari Backend
+<div align="center">
 
-Backend em **Node.js + TypeScript** responsável por localizar arquivos, validar sua existência e preparar downloads compactados em ZIP.
+# BaixaRI Backend
 
-## ✨ Principais pontos
+API em Node.js e TypeScript para localizar, reunir e extrair texto de documentos organizados por número de protocolo ou certidão.
 
-- API HTTP com Express
-- Fluxo compartilhado para protocolos e certidões
-- Verificação de existência de arquivos
-- Compactação com Archiver
-- Organização em aplicação, infraestrutura e apresentação
-- Build com esbuild
+![Node.js](https://img.shields.io/badge/Node.js-22.13%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)
+![Tests](https://img.shields.io/badge/testes-Node.js_Test_Runner-339933?style=flat-square&logo=nodedotjs&logoColor=white)
 
-## 🛠️ Tecnologias
+[Frontend](https://github.com/marcosfrancomarinho/baixari) · [Endpoints](#endpoints) · [Execução](#instalação-e-execução)
 
-- Node.js
-- TypeScript
-- Express 5
-- Archiver
-- CORS
-- esbuild
-- TSX
+</div>
 
-## 🏗️ Estrutura
+## Sobre o projeto
 
-```text
-src/
-├── app/
-│   ├── contracts/
-│   ├── errors/
-│   ├── factory/
-│   ├── model/
-│   ├── request/
-│   ├── services/
-│   ├── strategy/
-│   └── usecase/
-├── di/
-├── infra/
-├── presentation/
-│   ├── controllers/
-│   ├── http/
-│   └── routers/
-└── main.ts
+O backend do **BaixaRI** consulta pastas de protocolos e certidões e entrega o conteúdo no formato adequado para cada necessidade:
+
+- **ZIP** com todos os arquivos encontrados;
+- **PDF único** formado por PDFs e imagens;
+- **texto progressivo** para o frontend gerar arquivos DOCX.
+
+Quando um documento não possui texto nativo, a API renderiza a página e aplica OCR em português com Tesseract. Todo o processamento ocorre localmente: os documentos não são enviados a serviços externos.
+
+## Funcionalidades
+
+- consulta de protocolos e certidões pelo número;
+- leitura recursiva de pastas e subpastas em ordem numérica;
+- compactação ZIP com streaming e nível máximo de compressão;
+- união de PDFs e imagens JPG, JPEG e PNG;
+- extração do texto nativo de PDFs;
+- OCR local de PDFs digitalizados, páginas mistas e imagens;
+- resposta progressiva em `application/x-ndjson`;
+- cancelamento do processamento quando o cliente encerra a conexão;
+- controle de fluxo para clientes lentos;
+- validações centralizadas no objeto imutável `DocumentRequest`;
+- tratamento HTTP unificado para erros de validação, ausência de documentos e falhas internas;
+- separação entre aplicação, infraestrutura e apresentação;
+- estratégias independentes para as saídas ZIP e PDF;
+- testes automatizados com o test runner nativo do Node.js.
+
+## Fluxo da aplicação
+
+```mermaid
+flowchart TD
+    A["Requisição HTTP"] --> B["DocumentRequest valida a entrada"]
+    B --> C["DocumentFilesFinder localiza os arquivos"]
+    C --> D{"Saída solicitada"}
+    D -->|ZIP ou PDF| E["Download por streaming"]
+    D -->|Texto| F["Extração nativa ou OCR via NDJSON"]
 ```
 
-`DocumentRequest` é a única fronteira de validação. Ele recebe os valores brutos
-da requisição HTTP, valida número, tipo e formato, resolve o diretório e seleciona
-os arquivos compatíveis com ZIP, PDF ou texto. O controller apenas cria esse
-objeto e chama o caso de uso; o caso de uso não repete a validação.
+## Endpoints
 
-O objeto possui construtor privado, fábricas `forDownload()` e `forText()` e dados
-imutáveis. Entradas inválidas retornam HTTP 400. Pastas ou arquivos compatíveis
-inexistentes retornam HTTP 404. Falhas inesperadas retornam HTTP 500.
+| Método | Rota | Retorno |
+|---|---|---|
+| `GET` | `/protocol/:number?format=zip` | protocolo compactado em ZIP |
+| `GET` | `/protocol/:number?format=pdf` | protocolo reunido em um único PDF |
+| `GET` | `/certificate/:number?format=zip` | certidão compactada em ZIP |
+| `GET` | `/certificate/:number?format=pdf` | certidão reunida em um único PDF |
+| `GET` | `/protocol/:number/text` | páginas do protocolo em NDJSON |
+| `GET` | `/certificate/:number/text` | páginas da certidão em NDJSON |
 
-`DocumentFilesFinder` concentra a consulta ao sistema de arquivos. O mesmo
-`FileDownloaderUseCase` atende protocolos e certidões, e as strategies continuam
-responsáveis pela geração de ZIP ou PDF.
+O parâmetro `format` é opcional nos endpoints de download e assume `zip` por padrão. O backend aceita apenas `zip` ou `pdf`; o DOCX é gerado pelo [frontend](https://github.com/marcosfrancomarinho/baixari) após receber o texto progressivo.
 
-## ▶️ Desenvolvimento
+### Formatos processados
 
-```bash
-npm install
-npm run dev
-```
+| Saída | Arquivos considerados | Comportamento |
+|---|---|---|
+| ZIP | qualquer arquivo | preserva todo o conteúdo da pasta |
+| PDF | PDF, JPG, JPEG e PNG | combina tudo em um único documento |
+| Texto | PDF, JPG, JPEG e PNG | usa texto nativo e OCR quando necessário |
 
-Build:
+Arquivos sem formato compatível são ignorados nas saídas PDF e texto. Se nenhum arquivo válido for encontrado, a API retorna `404`.
 
-```bash
-npm run build
-```
+### Eventos da extração progressiva
 
-Produção:
-
-```bash
-npm start
-```
-
-## 🎯 Objetivo
-
-Centralizar as regras de localização, validação e compactação de arquivos em uma API separada do frontend.
-
-## 👨‍💻 Autor
-
-Marcos Marinho
-
-## Download ZIP ou PDF
-
-O cliente escolhe o formato pelo parametro `format` na query string:
-
-```http
-GET /protocol/123?format=pdf
-GET /protocol/123?format=zip
-GET /certificate/123?format=pdf
-GET /certificate/123?format=zip
-```
-
-Sem `format`, o retorno continua sendo ZIP. Outros valores retornam HTTP 400.
-
-O formato PDF une PDFs e imagens JPG, JPEG e PNG em um unico PDF, percorrendo
-a pasta e subpastas em ordem de nome (ordenacao numerica). Cada imagem ocupa
-uma pagina com suas proporcoes originais. Pastas contendo apenas imagens tambem
-sao aceitas. Quando ha apenas um PDF e nenhuma imagem, retorna o PDF original.
-Arquivos de outros formatos sao ignorados.
-Uma pasta sem PDFs ou imagens suportadas retorna HTTP 404. A uniao e feita em memoria; o PDF unido
-nao preserva as assinaturas digitais dos arquivos originais.
-
-Testes: `node --import tsx --test tests/download.test.ts`.
-
-## Texto progressivo para o frontend
-
-```http
-GET /protocol/123/text
-GET /certificate/123/text
-```
-
-A resposta usa `application/x-ndjson`: um objeto JSON por linha, enviado assim
-que a página termina. Não use `response.json()` ou `response.text()` no cliente,
-pois ambos esperam a resposta inteira. Exemplo dos eventos:
+Cada linha da resposta é um objeto JSON independente:
 
 ```json
 {"type":"start"}
@@ -124,88 +85,111 @@ pois ambos esperam a resposta inteira. Exemplo dos eventos:
 {"type":"done","pages":2}
 ```
 
-`totalPages` corresponde ao arquivo atual. Uma imagem tem uma página. Uma página
-sem texto reconhecido envia `text: ""`. Depois de iniciar a resposta, uma falha
-envia `{"type":"error","error":"..."}` e encerra a conexão sem `done`.
-Pasta inexistente retorna HTTP 404; número inválido retorna HTTP 400 antes de iniciar.
-Pasta vazia ou sem formatos suportados retorna HTTP 404 antes de `start`.
-ZIP aceita qualquer arquivo; PDF e texto aceitam PDF, JPG, JPEG e PNG.
+Se ocorrer uma falha depois do início do stream, a última linha terá o formato:
 
-O backend processa uma página por vez por requisição e aguarda o escoamento da
-resposta quando o cliente está lento. As páginas concluídas não ficam acumuladas
-no servidor. PDFs são abertos pelo caminho local com leitura por intervalos,
-evitando a cópia integral explícita feita anteriormente. O leitor de PDF ainda
-pode manter estruturas do documento na memória, e imagens precisam ser decodificadas
-antes da redução: isso não é um limite absoluto de RAM ou CPU.
-
-Ao cancelar a conexão, o processamento para antes da próxima página e libera os
-recursos. Se um OCR já estiver em execução, ele termina a página atual antes de
-encerrar. Requisições simultâneas ainda executam separadamente.
-
-### Exemplo de integração e Word no navegador
-
-Copie `examples/text-stream-client.js` para seu frontend e instale `docx` nele.
-O exemplo trata caracteres UTF-8 e linhas divididas entre pacotes de rede.
-
-```js
-import { extractText, createWord } from './text-stream-client.js';
-
-const controller = new AbortController();
-const pages = [];
-await extractText('http://localhost:3000/protocol/123/text', {
-  signal: controller.signal,
-  onPage(page) {
-    pages.push(page);
-    // Atualize a interface com page.text, page.file e page.page.
-    // Ao inserir texto no DOM, use textContent.
-  },
-});
-
-// Execute somente após a conclusão bem-sucedida; não repete o OCR.
-const blob = await createWord(pages);
-const url = URL.createObjectURL(blob);
-const link = document.createElement('a');
-link.href = url;
-link.download = 'protocolo_123.docx';
-link.click();
-setTimeout(() => URL.revokeObjectURL(url), 60000);
-
-// No botão Cancelar, durante a extração: controller.abort().
+```json
+{"type":"error","error":"Descrição da falha"}
 ```
 
-O navegador guarda o texto e monta o Word ao final. O download direto com
-`?format=docx` foi removido e retorna HTTP 400. ZIP e PDF continuam disponíveis.
-Este repositório contém o backend e um exemplo de integração para o frontend.
-A dependência `docx` fica em devDependencies para testar esse exemplo; o backend
-não gera Word.
+## Arquitetura
 
-### Organização
+```text
+src/
+├── app/
+│   ├── contracts/       # portas para filesystem, ZIP, PDF e extração
+│   ├── errors/          # erros da aplicação
+│   ├── factory/         # seleção da estratégia de saída
+│   ├── model/           # modelos de dados
+│   ├── request/         # validação e normalização da entrada
+│   ├── services/        # localização dos documentos
+│   ├── strategy/        # geração de ZIP ou PDF
+│   └── usecase/         # coordenação dos fluxos
+├── di/                  # configuração das dependências
+├── infra/               # filesystem, Archiver, pdf-lib e Tesseract
+├── presentation/
+│   ├── controllers/     # adaptação HTTP
+│   ├── http/            # respostas de erro
+│   └── routers/         # definição das rotas
+└── main.ts              # inicialização da aplicação
+```
 
-- `DocumentRequest`: validação única dos valores recebidos e seleção dos arquivos.
-- `DocumentFilesFinder`: localização do diretório e leitura dos arquivos.
-- `FileDownloaderController`: resposta HTTP compartilhada por protocolo e certidão.
-- `FileDownloaderUseCase`: coordenação dos downloads ZIP e PDF.
-- `TextExtractionController`: resposta HTTP, eventos NDJSON e desconexão.
-- `TextExtractionUseCase`: coordenação da extração progressiva.
-- `TextExtractionServices`: contrato de extração de páginas.
-- `LocalTextExtractionServices`: leitura de PDF e OCR local em português.
-- As strategies de download permanecem responsáveis por ZIP e PDF.
+### Decisões principais
 
-O OCR usa imagens de até 4 milhões de pixels e escala máxima 2 para PDFs,
-com pausa de 100 ms entre páginas. Os modelos são instalados nas dependências;
-os documentos não são enviados para serviços externos. Requer Node.js 22.13+.
-A precisão depende da legibilidade; revise o texto reconhecido.
+- `DocumentRequest` é a fronteira única de validação e normalização.
+- `DocumentFilesFinder` conhece a busca no sistema de arquivos, mas não gera respostas.
+- Os casos de uso coordenam dependências sem conhecer Express ou detalhes concretos.
+- `DownloadOutputStrategyFactory` escolhe a estratégia ZIP ou PDF.
+- Controllers cuidam somente do protocolo HTTP, headers, streaming e erros.
 
-Validação:
+## Configuração
+
+Antes de executar, defina as pastas-base em `src/di/providers.ts`:
+
+- `PATH_PROTOCOL`: diretório que contém os pedidos de protocolo;
+- `PATH_CERTIFICATE`: diretório que contém os pedidos de certidão.
+
+A estrutura esperada é uma subpasta para cada número:
+
+```text
+<pasta-base>/
+└── 123/
+    ├── documento.pdf
+    └── anexos/
+        └── imagem.jpg
+```
+
+A porta pode ser definida pela variável de ambiente `PORT`; o valor padrão é `3000`.
+
+## Instalação e execução
+
+### Requisitos
+
+- Node.js `22.13` ou superior;
+- npm ou Yarn;
+- acesso de leitura às pastas configuradas.
+
+```bash
+git clone https://github.com/marcosfrancomarinho/baixari-backend.git
+cd baixari-backend
+npm install
+npm run dev
+```
+
+Para gerar e executar o build de produção:
+
+```bash
+npm run build
+npm start
+```
+
+### Scripts
+
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | inicia o servidor em modo de desenvolvimento |
+| `npm run build` | gera `dist/bundle.cjs` com esbuild |
+| `npm start` | executa o bundle de produção |
+| `npm run type` | acompanha a verificação de tipos em modo watch |
+
+## Testes
 
 ```bash
 node --import tsx --test tests/*.test.ts
 npm run build
 ```
 
-Se houver proxy, desative o buffering dessa resposta e configure um timeout que
-suporte a leitura de uma página lenta. A API envia `X-Accel-Buffering: no` e
-`Cache-Control: no-store, no-transform`.
+Os testes cobrem validações, localização de arquivos, downloads, extração de texto, streaming NDJSON e cancelamento.
 
-Referências: [streaming no Fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#streaming_the_response_body)
-e [controle de fluxo no Node HTTP](https://nodejs.org/api/http.html#responsewritechunk-encoding-callback).
+## Observações
+
+- A união de PDFs gera um novo documento e não preserva assinaturas digitais dos arquivos originais.
+- A precisão do OCR depende da resolução e da legibilidade da página; revise o texto reconhecido.
+- Para preservar a resposta progressiva atrás de um proxy, desative o buffering e configure um timeout compatível com páginas mais lentas.
+
+## Licença
+
+MIT, conforme declarado no `package.json`.
+
+## Autor
+
+Desenvolvido por [Marcos Marinho](https://github.com/marcosfrancomarinho).
