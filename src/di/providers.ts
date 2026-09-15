@@ -18,6 +18,7 @@ import { PdfDownloadOutputStrategy } from '../app/strategy/pdf.download.output.s
 import { WordDownloadOutputStrategy } from '../app/strategy/word.download.output.strategy.js';
 import { WordServices } from '../domain/gateway/word.services.js';
 import { LocalWordServices } from '../infra/local.word.services.js';
+import { TextExtractionController } from '../presentation/controllers/text.extraction.controller.js';
 
 const providers = new AppConfig();
 
@@ -36,6 +37,7 @@ providers
   .useClass(CertificateFileDownloaderUseCase)
   .useClass(ProtocolFileDownloaderController)
   .useClass(CertificateFileDownloaderController)
+  .useClass(TextExtractionController)
   .useClass(Routers);
 
 export const container = createApplicationContext(providers);

@@ -118,12 +118,92 @@ Requer Node.js 22.13 ou superior. Execute `yarn install` após atualizar.
 O processamento acontece durante a requisição
 e pode demorar em documentos grandes; considere esse tempo no timeout do cliente
 e do proxy. Cada requisição usa seu próprio worker de OCR e o encerra ao terminar.
-O Word é montado em memória e as páginas PDF para OCR são limitadas a 16 milhões
-de pixels. Não há fila de processamento nesta versão.
+No download direto, o Word é montado em memória. O OCR usa imagens de até
+4 milhões de pixels; PDFs são renderizados em escala máxima 2 (aproximadamente
+144 DPI em páginas convencionais). Existe uma pausa de 100 ms entre páginas.
+Não há fila de processamento nesta versão.
 
 Testes de download e extração (incluem OCR real, sem acesso à internet):
 
 ```bash
-node --import tsx --test tests/download.test.ts tests/word.test.ts
+node --import tsx --test tests/download.test.ts tests/word.test.ts tests/text.stream.test.ts
 npm run build
 ```
+
+## Texto progressivo para o frontend
+
+```http
+GET /protocol/123/text
+GET /certificate/123/text
+```
+
+A resposta usa `application/x-ndjson`: um objeto JSON por linha, enviado assim
+que a página termina. Não use `response.json()` ou `response.text()` no cliente,
+pois ambos esperam a resposta inteira. Exemplo dos eventos:
+
+```json
+{"type":"start"}
+{"type":"page","file":"documento.pdf","page":1,"totalPages":2,"text":"Texto da primeira página"}
+{"type":"page","file":"documento.pdf","page":2,"totalPages":2,"text":"Texto da segunda página"}
+{"type":"done","pages":2}
+```
+
+`totalPages` corresponde ao arquivo atual. Uma imagem tem uma página. Uma página
+sem texto reconhecido envia `text: ""`. Depois de iniciar a resposta, uma falha
+envia `{"type":"error","error":"..."}` e encerra a conexão sem `done`.
+Pasta inexistente retorna HTTP 404; número inválido retorna HTTP 400 antes de iniciar.
+Pasta vazia é informada por um evento `error` depois de `start`.
+
+O backend processa uma página por vez por requisição e aguarda o escoamento da
+resposta quando o cliente está lento. As páginas concluídas não ficam acumuladas
+no servidor. PDFs são abertos pelo caminho local com leitura por intervalos,
+evitando a cópia integral explícita feita anteriormente. O leitor de PDF ainda
+pode manter estruturas do documento na memória, e imagens precisam ser decodificadas
+antes da redução: isso não é um limite absoluto de RAM ou CPU.
+
+Ao cancelar a conexão, o processamento para antes da próxima página e libera os
+recursos. Se um OCR já estiver em execução, ele termina a página atual antes de
+encerrar. Requisições simultâneas ainda executam separadamente.
+
+### Exemplo de integração e Word no navegador
+
+Copie `examples/text-stream-client.js` para seu frontend e instale `docx` nele.
+O exemplo trata caracteres UTF-8 e linhas divididas entre pacotes de rede.
+
+```js
+import { extractText, createWord } from './text-stream-client.js';
+
+const controller = new AbortController();
+const pages = [];
+await extractText('http://localhost:3000/protocol/123/text', {
+  signal: controller.signal,
+  onPage(page) {
+    pages.push(page);
+    // Atualize a interface com page.text, page.file e page.page.
+    // Ao inserir texto no DOM, use textContent.
+  },
+});
+
+// Execute somente após a conclusão bem-sucedida; não repete o OCR.
+const blob = await createWord(pages);
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = 'protocolo_123.docx';
+link.click();
+setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+// No botão Cancelar, durante a extração: controller.abort().
+```
+
+Nesse fluxo, o navegador guarda o texto e monta o Word no final. A rota antiga
+`?format=docx` continua disponível para download direto, mas chamá-la depois de
+`/text` executaria a extração novamente. Este repositório contém o backend e o
+exemplo de integração; a tela do frontend deve consumir a nova rota.
+
+Se houver proxy, desative o buffering dessa resposta e configure um timeout que
+suporte a leitura de uma página lenta. A API envia `X-Accel-Buffering: no` e
+`Cache-Control: no-store, no-transform`.
+
+Referências: [streaming no Fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#streaming_the_response_body)
+e [controle de fluxo no Node HTTP](https://nodejs.org/api/http.html#responsewritechunk-encoding-callback).

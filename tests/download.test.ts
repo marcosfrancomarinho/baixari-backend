@@ -18,6 +18,7 @@ import { ZipDownloadOutputStrategy } from '../src/app/strategy/zip.download.outp
 import { PdfDownloadOutputStrategy } from '../src/app/strategy/pdf.download.output.strategy.js';
 import { WordDownloadOutputStrategy } from '../src/app/strategy/word.download.output.strategy.js';
 import { LocalWordServices } from '../src/infra/local.word.services.js';
+import { TextExtractionController } from '../src/presentation/controllers/text.extraction.controller.js';
 
 test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baixari-test-'));
@@ -33,6 +34,7 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
   new Routers(
     new ProtocolFileDownloaderController(new ProtocolFileDownloaderUseCase(checker, factory)),
     new CertificateFileDownloaderController(new CertificateFileDownloaderUseCase(checker, factory)),
+    new TextExtractionController(checker, new LocalWordServices()),
   ).setup(app);
   const server = app.listen(0, '127.0.0.1');
   try {
