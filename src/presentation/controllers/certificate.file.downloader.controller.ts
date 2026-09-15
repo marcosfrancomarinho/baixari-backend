@@ -1,15 +1,16 @@
+import { InvalidInputError } from '../../app/input/invalid.input.error.js';
+import { DocumentInput } from '../../app/input/document.input.js';
 import type { CertificateFileDownloaderUseCase } from '../../app/usecase/certificate.file.downloader.usecase.js';
 import type { Request, Response } from 'express';
 import { pipeline } from 'stream/promises';
 import { InvalidDownloadFormatError, parseDownloadFormat } from '../../app/dto/download.format.js';
-import { WordGenerationError } from '../../domain/gateway/word.services.js';
 
 export class CertificateFileDownloaderController {
   public constructor(private certificateFileDownloaderUseCase: CertificateFileDownloaderUseCase) {}
 
   public async execute(request: Request, response: Response): Promise<void> {
     try {
-      const number = Number.parseInt(request.params.number as string);
+      const number = DocumentInput.fromRoute(request.params.number, 'certificate').number;
       const format = parseDownloadFormat(request.query.format);
       const output = await this.certificateFileDownloaderUseCase.dowload({ number, format });
       response.setHeader('Content-Type', output.contentType);
@@ -36,7 +37,7 @@ export class CertificateFileDownloaderController {
       await pipeline(output.stream, response);
     } catch (error) {
       if (!response.headersSent) {
-        response.status(error instanceof InvalidDownloadFormatError ? 400 : error instanceof WordGenerationError ? 500 : 404).json({
+        response.status(error instanceof InvalidDownloadFormatError || error instanceof InvalidInputError ? 400 : 404).json({
           error: (error as Error).message,
         });
       }

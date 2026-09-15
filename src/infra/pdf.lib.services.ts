@@ -1,14 +1,13 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import type { FilesInput } from '../app/input/files.input.js';
+import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 import { PDFDocument } from 'pdf-lib';
-import type { PdfServices } from '../domain/gateway/pdf.services.js';
-import type { Path } from '../domain/valuesobject/path.js';
+import type { PdfServices } from '../app/contracts/pdf.services.js';
 
 export class PdfLibServices implements PdfServices {
-  public async generate(path: Path): Promise<Readable> {
-    const files = await this.findFiles(path.getPath());
-    if (files.length === 0) throw new Error('Nenhum PDF ou imagem (JPG, JPEG, PNG) encontrado na pasta.');
+  public async generate(input: FilesInput): Promise<Readable> {
+    const files = input.files;
     if (files.length === 1 && extname(files[0]).toLowerCase() === '.pdf') {
       return Readable.from([await readFile(files[0])]);
     }
@@ -30,17 +29,5 @@ export class PdfLibServices implements PdfServices {
       }
     }
     return Readable.from([Buffer.from(await merged.save())]);
-  }
-
-  private async findFiles(directory: string): Promise<string[]> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
-    const files: string[] = [];
-    for (const entry of entries) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) files.push(...await this.findFiles(path));
-      else if (entry.isFile() && ['.pdf', '.jpg', '.jpeg', '.png'].includes(extname(entry.name).toLowerCase())) files.push(path);
-    }
-    return files;
   }
 }

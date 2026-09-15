@@ -1,16 +1,11 @@
+import type { FilesInput } from '../app/input/files.input.js';
 import { PassThrough, Readable } from 'stream';
-import type { Path } from '../domain/valuesobject/path.js';
-import type { ZipServices } from '../domain/gateway/zip.services.js';
+import type { ZipServices } from '../app/contracts/zip.services.js';
 import archiver from 'archiver';
-import fs from 'fs/promises';
 
 export class ArchiverZipServices implements ZipServices {
-  public async generate(path: Path): Promise<Readable> {
-    const dir = path.getPath();
-    const files = await fs.readdir(dir);
-    if (files.length === 0) {
-      throw new Error('Pasta vazia.');
-    }
+  public async generate(input: FilesInput): Promise<Readable> {
+    const dir = input.directory.path;
     const archive = archiver('zip', {
       zlib: { level: 9 },
     });

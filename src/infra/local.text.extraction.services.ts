@@ -1,44 +1,21 @@
-import { readFile, readdir } from 'node:fs/promises';
+import type { FilesInput } from '../app/input/files.input.js';
+import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { setTimeout as pause } from 'node:timers/promises';
-import { Document, HeadingLevel, Packer, Paragraph } from 'docx';
 import { createWorker, OEM, type Worker } from 'tesseract.js';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { WordGenerationError, type WordServices, type ExtractedPage } from '../domain/gateway/word.services.js';
-import type { Path } from '../domain/valuesobject/path.js';
+import { TextExtractionError, type TextExtractionServices, type ExtractedPage } from '../app/contracts/text.extraction.services.js';
 
 // Resolve installed assets also when the application is bundled as CommonJS.
 const requireAsset = createRequire(resolve('package.json'));
 
-export class LocalWordServices implements WordServices {
-  public async generate(path: Path): Promise<Readable> {
-    const paragraphs: Paragraph[] = [];
-    let previousFile: string | undefined;
-    for await (const page of this.extract(path)) {
-      if (page.file !== previousFile) {
-        paragraphs.push(new Paragraph({ text: page.file, heading: HeadingLevel.HEADING_1, pageBreakBefore: paragraphs.length > 0 }));
-        previousFile = page.file;
-      }
-      paragraphs.push(new Paragraph({ text: `Página ${page.page}`, heading: HeadingLevel.HEADING_2 }));
-      for (const line of (page.text || '[Nenhum texto reconhecido nesta página.]').split(/\r?\n/)) {
-        paragraphs.push(new Paragraph({ text: line }));
-      }
-    }
-    const document = new Document({
-      styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
-      sections: [{ children: paragraphs }],
-    });
-    return Readable.from([await Packer.toBuffer(document)]);
-  }
-
-  public async *extract(path: Path, signal?: AbortSignal): AsyncGenerator<ExtractedPage> {
+export class LocalTextExtractionServices implements TextExtractionServices {
+  public async *extract(input: FilesInput, signal?: AbortSignal): AsyncGenerator<ExtractedPage> {
     signal?.throwIfAborted();
-    const root = path.getPath();
-    const files = await this.findFiles(root);
-    if (!files.length) throw new Error('Nenhum PDF ou imagem (JPG, JPEG, PNG) encontrado na pasta.');
+    const root = input.directory.path;
+    const files = input.files;
     let worker: Worker | undefined;
     const recognize = async (image: Buffer): Promise<string> => {
       signal?.throwIfAborted();
@@ -111,7 +88,7 @@ export class LocalWordServices implements WordServices {
       }
     } catch (error) {
       signal?.throwIfAborted();
-      throw new WordGenerationError('Não foi possível extrair o texto e gerar o Word. Verifique se os arquivos estão legíveis e os PDFs não exigem senha.', { cause: error });
+      throw new TextExtractionError('Não foi possível extrair o texto. Verifique se os arquivos estão legíveis e os PDFs não exigem senha.', { cause: error });
     } finally {
       await worker?.terminate();
     }
@@ -131,17 +108,5 @@ export class LocalWordServices implements WordServices {
       canvas.width = 0;
       canvas.height = 0;
     }
-  }
-
-  private async findFiles(directory: string): Promise<string[]> {
-    const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
-    const files: string[] = [];
-    for (const entry of entries) {
-      const file = join(directory, entry.name);
-      if (entry.isDirectory()) files.push(...await this.findFiles(file));
-      else if (entry.isFile() && ['.pdf', '.png', '.jpg', '.jpeg'].includes(extname(entry.name).toLowerCase())) files.push(file);
-    }
-    return files;
   }
 }

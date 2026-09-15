@@ -1,5 +1,5 @@
+import type { FilesInput } from '../input/files.input.js';
 import type { Readable } from 'node:stream';
-import type { Path } from '../../domain/valuesobject/path.js';
 import type { DownloadFormat } from '../dto/download.format.js';
 
 export interface DownloadOutput {
@@ -9,5 +9,5 @@ export interface DownloadOutput {
 }
 
 export interface DownloadOutputStrategy {
-  generate(path: Path): Promise<DownloadOutput>;
+  generate(input: FilesInput): Promise<DownloadOutput>;
 }

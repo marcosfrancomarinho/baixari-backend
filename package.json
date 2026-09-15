@@ -15,7 +15,6 @@
     "@tesseract.js-data/por": "^1.0.0",
     "archiver": "^7.0.1",
     "cors": "^2.8.6",
-    "docx": "^9.7.1",
     "express": "^5.2.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
@@ -28,7 +27,8 @@
     "@types/node": "^25.6.0",
     "esbuild": "^0.28.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "docx": "^9.7.1"
   },
   "license": "MIT"
 }

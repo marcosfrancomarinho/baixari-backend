@@ -1,13 +1,13 @@
-import type { Path } from '../../domain/valuesobject/path.js';
-import type { ZipServices } from '../../domain/gateway/zip.services.js';
+import type { FilesInput } from '../input/files.input.js';
+import type { ZipServices } from '../contracts/zip.services.js';
 import type { DownloadOutput, DownloadOutputStrategy } from './download.output.strategy.js';
 
 export class ZipDownloadOutputStrategy implements DownloadOutputStrategy {
   public constructor(private zipServices: ZipServices) {}
 
-  public async generate(path: Path): Promise<DownloadOutput> {
+  public async generate(input: FilesInput): Promise<DownloadOutput> {
     return {
-      stream: await this.zipServices.generate(path),
+      stream: await this.zipServices.generate(input),
       extension: 'zip',
       contentType: 'application/zip',
     };

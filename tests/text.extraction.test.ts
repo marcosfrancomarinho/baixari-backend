@@ -1,3 +1,6 @@
+import { DirectoryInput } from '../src/app/input/directory.input.js';
+import { FilesInput } from '../src/app/input/files.input.js';
+import { FsFileSystemGateway } from '../src/infra/fs.file.system.gateway.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
@@ -5,12 +8,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import { PDFDocument } from 'pdf-lib';
-import JSZip from 'jszip';
-import { LocalWordServices } from '../src/infra/local.word.services.js';
-import { Path } from '../src/domain/valuesobject/path.js';
-import { WordGenerationError } from '../src/domain/gateway/word.services.js';
+import { LocalTextExtractionServices } from '../src/infra/local.text.extraction.services.js';
+import { TextExtractionError } from '../src/app/contracts/text.extraction.services.js';
 
-test('Word extracts native PDF, PNG, JPEG, scanned and mixed PDF pages locally', { timeout: 120000 }, async () => {
+test('Text extraction reads native PDF, PNG, JPEG, scanned and mixed PDF pages locally', { timeout: 120000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'baixari-word-'));
   try {
     const canvas = createCanvas(1400, 240);
@@ -33,18 +34,17 @@ test('Word extracts native PDF, PNG, JPEG, scanned and mixed PDF pages locally',
     mixed.drawImage(embedded, { x: 0, y: 0, width: 700, height: 120 });
     pdf.addPage();
     await writeFile(join(root, '1.pdf'), await pdf.save());
-    const stream = await new LocalWordServices().generate(Path.create(root));
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-    const zip = await JSZip.loadAsync(Buffer.concat(chunks));
-    const xml = await zip.file('word/document.xml')!.async('string');
-    assert.match(xml, /Texto original do PDF 67890/);
-    assert.equal((xml.match(/DOCUMENTO TESTE 12345/g) || []).length, 4);
-    assert.match(xml, /CABECALHO/);
-    assert.match(xml, /Nenhum texto reconhecido/);
-    assert.ok(xml.indexOf('1.pdf') < xml.indexOf('2.png'));
+    const pages = [];
+    for await (const page of new LocalTextExtractionServices().extract(FilesInput.create(DirectoryInput.create(root), await new FsFileSystemGateway(root, root).listFiles(DirectoryInput.create(root))))) pages.push(page);
+    assert.equal(pages.length, 6);
+    assert.match(pages[0].text, /Texto original do PDF 67890/);
+    assert.equal(pages.filter(page => page.text.includes('DOCUMENTO TESTE 12345')).length, 4);
+    assert.match(pages[2].text, /CABECALHO/);
+    assert.equal(pages[3].text, '');
+    assert.equal(pages[0].file, '1.pdf');
+    assert.equal(pages[4].file, '2.png');
     await writeFile(join(root, '0.pdf'), 'invalid pdf');
-    await assert.rejects(new LocalWordServices().generate(Path.create(root)), WordGenerationError);
+    await assert.rejects(new LocalTextExtractionServices().extract(FilesInput.create(DirectoryInput.create(root), await new FsFileSystemGateway(root, root).listFiles(DirectoryInput.create(root)))).next(), TextExtractionError);
   } finally {
     assert.ok(root.startsWith(join(tmpdir(), 'baixari-word-')));
     await rm(root, { recursive: true, force: true });

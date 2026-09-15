@@ -1,10 +1,10 @@
+import { TextExtractionUseCase } from '../src/app/usecase/text.extraction.usecase.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import express from 'express';
 import { setTimeout as pause } from 'node:timers/promises';
 import { TextExtractionController } from '../src/presentation/controllers/text.extraction.controller.js';
-import { Path } from '../src/domain/valuesobject/path.js';
-import type { WordServices } from '../src/domain/gateway/word.services.js';
+import type { TextExtractionServices } from '../src/app/contracts/text.extraction.services.js';
 import { extractText, createWord } from '../examples/text-stream-client.js';
 import JSZip from 'jszip';
 
@@ -12,9 +12,8 @@ test('HTTP sends pages before extraction finishes, reports errors and stops afte
   let released = false;
   let stopped = false;
   let mode = 'normal';
-  const services: WordServices = {
-    async generate() { throw new Error('Not used'); },
-    async *extract(_path, signal) {
+  const services: TextExtractionServices = {
+    async *extract(_input, signal) {
       try {
         yield { file: 'ação.pdf', page: 1, totalPages: 2, text: 'Primeira página' };
         if (mode === 'error') throw new Error('PDF ilegível');
@@ -23,8 +22,12 @@ test('HTTP sends pages before extraction finishes, reports errors and stops afte
       } finally { stopped = true; }
     },
   };
-  const checker = { async checkProtocol() { return Path.create('test'); }, async checkCertificate() { return Path.create('test'); } };
-  const controller = new TextExtractionController(checker, services);
+  const checker = {
+    getBasePath(input) { return input.kind; },
+    async isDirectory(path) { return !path.path.endsWith('999'); },
+    async listFiles() { return ['document.pdf']; },
+  };
+  const controller = new TextExtractionController(new TextExtractionUseCase(checker, services));
   const app = express();
   app.get('/:kind/:number/text', (req, res) => controller.execute(req, res, req.params.kind as 'protocol' | 'certificate'));
   const server = app.listen(0, '127.0.0.1');
@@ -56,6 +59,9 @@ test('HTTP sends pages before extraction finishes, reports errors and stops afte
     for (let i = 0; i < 100 && !stopped; i++) await pause(10);
     assert.equal(stopped, true);
     assert.equal((await fetch(`${base}/protocol/no/text`)).status, 400);
+    const missing = await fetch(`${base}/protocol/999/text`);
+    assert.equal(missing.status, 404);
+    assert.match(missing.headers.get('content-type')!, /application\/json/);
   } finally {
     server.closeAllConnections();
     await new Promise<void>(resolve => server.close(() => resolve()));

@@ -1,3 +1,4 @@
+import { TextExtractionUseCase } from '../src/app/usecase/text.extraction.usecase.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
@@ -5,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import express from 'express';
 import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
-import { FsFileExistenceChecker } from '../src/infra/fs.file.existence.checker.js';
+import { FsFileSystemGateway } from '../src/infra/fs.file.system.gateway.js';
 import { ArchiverZipServices } from '../src/infra/archiver.zip.services.js';
 import { PdfLibServices } from '../src/infra/pdf.lib.services.js';
 import { ProtocolFileDownloaderUseCase } from '../src/app/usecase/protocol.file.downloader.usecase.js';
@@ -16,25 +17,31 @@ import { Routers } from '../src/presentation/routers/routers.js';
 import { DownloadOutputStrategyFactory } from '../src/app/factory/download.output.strategy.factory.js';
 import { ZipDownloadOutputStrategy } from '../src/app/strategy/zip.download.output.strategy.js';
 import { PdfDownloadOutputStrategy } from '../src/app/strategy/pdf.download.output.strategy.js';
-import { WordDownloadOutputStrategy } from '../src/app/strategy/word.download.output.strategy.js';
-import { LocalWordServices } from '../src/infra/local.word.services.js';
+import { LocalTextExtractionServices } from '../src/infra/local.text.extraction.services.js';
 import { TextExtractionController } from '../src/presentation/controllers/text.extraction.controller.js';
 
 test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baixari-test-'));
-  const checker = new FsFileExistenceChecker(root, root);
+  const checker = new FsFileSystemGateway(root, root);
   const zip = new ArchiverZipServices();
   const pdf = new PdfLibServices();
   const factory = new DownloadOutputStrategyFactory(
     new ZipDownloadOutputStrategy(zip),
     new PdfDownloadOutputStrategy(pdf),
-    new WordDownloadOutputStrategy(new LocalWordServices()),
   );
   const app = express();
+  for (const usecase of [
+    new ProtocolFileDownloaderUseCase(checker, factory),
+    new CertificateFileDownloaderUseCase(checker, factory),
+  ]) {
+    for (const number of [NaN, 0, -1, 1.5, Infinity]) {
+      await assert.rejects(usecase.dowload({ number }), /invalido/);
+    }
+  }
   new Routers(
     new ProtocolFileDownloaderController(new ProtocolFileDownloaderUseCase(checker, factory)),
     new CertificateFileDownloaderController(new CertificateFileDownloaderUseCase(checker, factory)),
-    new TextExtractionController(checker, new LocalWordServices()),
+    new TextExtractionController(new TextExtractionUseCase(checker, new LocalTextExtractionServices())),
   ).setup(app);
   const server = app.listen(0, '127.0.0.1');
   try {
@@ -64,6 +71,10 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
     assert.ok(address && typeof address !== 'string');
     for (const route of ['protocol', 'certificate']) {
       const base = `http://127.0.0.1:${address.port}/${route}`;
+      for (const number of ['1abc', '1.5', '1e2', '0x10', '-1', '0', '9007199254740992']) {
+        assert.equal((await fetch(`${base}/${number}`)).status, 400);
+        assert.equal((await fetch(`${base}/${number}/text`)).status, 400);
+      }
       for (const query of ['', '?format=zip']) {
         const response = await fetch(`${base}/1${query}`);
         assert.equal(response.status, 200);
@@ -95,14 +106,7 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
       }
       const single = await fetch(`${base}/3?format=pdf`);
       assert.deepEqual(Buffer.from(await single.arrayBuffer()), Buffer.from(bytes));
-      const word = await fetch(`${base}/3?format=docx`);
-      assert.equal(word.status, 200);
-      assert.equal(word.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      assert.equal(word.headers.get('content-disposition'), `attachment; filename=${route}_3.docx`);
-      assert.equal(Buffer.from(await word.arrayBuffer()).subarray(0, 2).toString(), 'PK');
-      assert.equal((await fetch(`${base}/2?format=docx`)).status, 404);
-      assert.equal((await fetch(`${base}/999?format=docx`)).status, 404);
-      for (const query of ['format=rar', 'format=pdf&format=zip', 'format=']) {
+      for (const query of ['format=docx', 'format=rar', 'format=pdf&format=zip', 'format=']) {
         assert.equal((await fetch(`${base}/1?${query}`)).status, 400);
       }
       assert.equal((await fetch(`${base}/2?format=pdf`)).status, 404);
