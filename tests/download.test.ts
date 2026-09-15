@@ -16,6 +16,8 @@ import { Routers } from '../src/presentation/routers/routers.js';
 import { DownloadOutputStrategyFactory } from '../src/app/factory/download.output.strategy.factory.js';
 import { ZipDownloadOutputStrategy } from '../src/app/strategy/zip.download.output.strategy.js';
 import { PdfDownloadOutputStrategy } from '../src/app/strategy/pdf.download.output.strategy.js';
+import { WordDownloadOutputStrategy } from '../src/app/strategy/word.download.output.strategy.js';
+import { LocalWordServices } from '../src/infra/local.word.services.js';
 
 test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baixari-test-'));
@@ -25,6 +27,7 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
   const factory = new DownloadOutputStrategyFactory(
     new ZipDownloadOutputStrategy(zip),
     new PdfDownloadOutputStrategy(pdf),
+    new WordDownloadOutputStrategy(new LocalWordServices()),
   );
   const app = express();
   new Routers(
@@ -90,6 +93,13 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
       }
       const single = await fetch(`${base}/3?format=pdf`);
       assert.deepEqual(Buffer.from(await single.arrayBuffer()), Buffer.from(bytes));
+      const word = await fetch(`${base}/3?format=docx`);
+      assert.equal(word.status, 200);
+      assert.equal(word.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      assert.equal(word.headers.get('content-disposition'), `attachment; filename=${route}_3.docx`);
+      assert.equal(Buffer.from(await word.arrayBuffer()).subarray(0, 2).toString(), 'PK');
+      assert.equal((await fetch(`${base}/2?format=docx`)).status, 404);
+      assert.equal((await fetch(`${base}/999?format=docx`)).status, 404);
       for (const query of ['format=rar', 'format=pdf&format=zip', 'format=']) {
         assert.equal((await fetch(`${base}/1?${query}`)).status, 400);
       }

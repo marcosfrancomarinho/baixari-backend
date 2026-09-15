@@ -11,21 +11,26 @@ import { CertificateFileDownloaderController } from '../presentation/controllers
 import { ProtocolFileDownloaderController } from '../presentation/controllers/protocol.file.downloader.controller.js';
 import { Routers } from '../presentation/routers/routers.js';
 import { PATH_CERTIFICATE, PATH_PROTOCOL } from './tokens.js';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 import { DownloadOutputStrategyFactory } from '../app/factory/download.output.strategy.factory.js';
 import { ZipDownloadOutputStrategy } from '../app/strategy/zip.download.output.strategy.js';
 import { PdfDownloadOutputStrategy } from '../app/strategy/pdf.download.output.strategy.js';
+import { WordDownloadOutputStrategy } from '../app/strategy/word.download.output.strategy.js';
+import { WordServices } from '../domain/gateway/word.services.js';
+import { LocalWordServices } from '../infra/local.word.services.js';
 
 const providers = new AppConfig();
 
 providers
-  .useValue(PATH_PROTOCOL, join(process.cwd(), '/files/protocols'))
-  .useValue(PATH_CERTIFICATE, join(process.cwd(), '/files/certificates'))
+  .useValue(PATH_PROTOCOL, resolve('C:\\FoliumGED\\Pedido'))
+  .useValue(PATH_CERTIFICATE, resolve('C:\\FoliumGED\\PedidoCertidao'))
   .useClass<FileExistenceChecker>(FsFileExistenceChecker, [PATH_CERTIFICATE, PATH_PROTOCOL])
   .useClass<ZipServices>(ArchiverZipServices)
   .useClass<PdfServices>(PdfLibServices)
+  .useClass<WordServices>(LocalWordServices)
   .useClass(ZipDownloadOutputStrategy)
   .useClass(PdfDownloadOutputStrategy)
+  .useClass(WordDownloadOutputStrategy)
   .useClass(DownloadOutputStrategyFactory)
   .useClass(ProtocolFileDownloaderUseCase)
   .useClass(CertificateFileDownloaderUseCase)

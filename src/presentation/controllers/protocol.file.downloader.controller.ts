@@ -2,6 +2,7 @@ import type { ProtocolFileDownloaderUseCase } from '../../app/usecase/protocol.f
 import type { Request, Response } from 'express';
 import { pipeline } from 'stream/promises';
 import { InvalidDownloadFormatError, parseDownloadFormat } from '../../app/dto/download.format.js';
+import { WordGenerationError } from '../../domain/gateway/word.services.js';
 
 export class ProtocolFileDownloaderController {
   public constructor(private protocolFileDownloaderUseCase: ProtocolFileDownloaderUseCase) {}
@@ -36,7 +37,7 @@ export class ProtocolFileDownloaderController {
       await pipeline(output.stream, response);
     } catch (error) {
       if (!response.headersSent) {
-        response.status(error instanceof InvalidDownloadFormatError ? 400 : 404).json({
+        response.status(error instanceof InvalidDownloadFormatError ? 400 : error instanceof WordGenerationError ? 500 : 404).json({
           error: (error as Error).message,
         });
       }
