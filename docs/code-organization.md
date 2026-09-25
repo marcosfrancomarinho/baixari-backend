@@ -4,46 +4,31 @@
 
 | Camada | Responsabilidade | Exemplos |
 |---|---|---|
-| `app/request` | validar e normalizar entradas | `DocumentRequest`, `PdfConversionRequest` |
-| `app/usecase` | coordenar o fluxo e suas regras | download, extração de texto, conversão |
-| `app/contracts` | definir as operações oferecidas pelos gateways e serviços | filesystem, upload, conversão |
-| `app/services` | operações de aplicação reutilizáveis | localização de documentos |
-| `app/strategy` e `app/factory` | selecionar e executar a geração de ZIP ou PDF | estratégias de download |
-| `infra` | implementar acesso a disco, bibliotecas e subprocessos | Archiver, pdf-lib, OCR, Ghostscript |
-| `presentation/controllers` | adaptar requisição, resposta, streaming e desconexão | controllers HTTP |
-| `presentation/http` | traduzir erros para respostas HTTP | status e mensagens de erro |
-| `di` | montar e injetar as implementações concretas | providers e tokens tipados |
+| `app/request` | validar e normalizar entradas | `DocumentRequest` |
+| `app/usecase` | coordenar os fluxos | download e extração de texto |
+| `app/contracts` | definir portas da aplicação | filesystem, PDF, ZIP e extração |
+| `app/services` | operações reutilizáveis | localização de documentos |
+| `app/strategy` e `app/factory` | selecionar a saída | ZIP ou PDF |
+| `infra` | implementar disco e bibliotecas | Archiver, pdf-lib e OCR |
+| `presentation/controllers` | adaptar HTTP e streaming | controllers |
+| `presentation/http` | traduzir erros HTTP | status e mensagens |
+| `di` | montar dependências | providers e tokens |
 
 ## Convenções
 
-- Métodos e construtores de classes têm visibilidade explícita: `public` para
-  operações expostas, `private` para detalhes internos. Interfaces e funções de
-  módulo não aceitam esses modificadores em TypeScript.
-- Dependências recebidas por construtor são `private readonly` quando não precisam
-  ser substituídas. Estado mutável pertence à operação ou à classe que o controla.
-- Métodos de entrada aparecem antes dos auxiliares privados. Nomes indicam a ação
-  ou o dado: `extractPdf`, `recognizePdfPage`, `documentCount`, `outputPath`.
-- Regras de entrada ficam na aplicação. Controllers não validam documentos nem
-  instanciam gateways. Detalhes de parsing, processos e filesystem ficam em `infra`.
-- Extraia etapas com responsabilidade própria; evite métodos que apenas renomeiam
-  uma linha sem esclarecer o fluxo. Comentários explicam motivos, principalmente
-  limites de memória, cancelamento e liberação de recursos.
-- Preserve `try/finally` ao reorganizar código com streams, páginas PDF, workers e
-  arquivos temporários. A limpeza também precisa ocorrer em erro ou desconexão.
+- Métodos e construtores de classes têm visibilidade explícita.
+- Dependências de construtor são `private readonly` quando imutáveis.
+- Regras de entrada ficam na aplicação; controllers não validam documentos.
+- Detalhes de filesystem e bibliotecas ficam em `infra`.
+- Preserve `try/finally` em fluxos com streams, páginas PDF e workers para garantir liberação de recursos.
 
 ## Fluxos principais
 
-O download valida a requisição, localiza os documentos e seleciona uma estratégia
-de saída. O controller entrega o stream usando os metadados retornados.
+O download valida a requisição, localiza os documentos e seleciona uma estratégia de saída ZIP ou PDF. O controller entrega o stream usando os metadados retornados.
 
-A extração de texto reutiliza um worker OCR por execução. A implementação separa
-leitura do PDF, extração da página, renderização e reconhecimento de imagens. Os
-limites de resolução e a pausa entre páginas estão em constantes nomeadas.
+A extração de texto reutiliza um worker OCR por execução. A implementação separa leitura do PDF, extração da página, renderização e reconhecimento de imagens.
 
-A conversão por upload mantém uma vaga de execução até o download terminar. Seus
-gateways recebem os arquivos, administram o espaço temporário e executam a
-conversão. Os detalhes operacionais estão em
-[conversão de documentos](../examples/convert-documents.md).
+A conversão de arquivos locais escolhidos pelo usuário não faz parte desta API. Ela é executada pelo frontend diretamente no navegador.
 
 ## Verificação após alterações
 
@@ -51,7 +36,3 @@ conversão. Os detalhes operacionais estão em
 node --import tsx --test tests/*.test.ts
 npm run build
 ```
-
-Defina `GHOSTSCRIPT_PATH` para executar também os testes de conversão real. Os
-testes de aplicação usam implementações substitutas dos contratos; os testes de
-integração cobrem os streams e as bibliotecas concretas.
