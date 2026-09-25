@@ -1,9 +1,3 @@
-import { PdfConversionController } from '../src/presentation/controllers/pdf.conversion.controller.js';
-import { PdfConversionUseCase } from '../src/app/usecase/pdf.conversion.usecase.js';
-import { DiskDocumentUpload } from '../src/infra/disk.document.upload.js';
-import { DiskPdfConversion } from '../src/infra/disk.pdf.conversion.js';
-import { FsConversionWorkspaceGateway } from '../src/infra/fs.conversion.workspace.gateway.js';
-import { conversionConfig } from '../src/infra/pdf.conversion.config.js';
 import { TextExtractionUseCase } from '../src/app/usecase/text.extraction.usecase.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -43,14 +37,9 @@ test('ZIP, merged PDF, original PDF and invalid inputs on both routes', async ()
     );
   }
   const finder = new DocumentFilesFinder(checker);
-  const config = conversionConfig();
-  const workspace = new FsConversionWorkspaceGateway(config);
   new Routers(
     new FileDownloaderController(new FileDownloaderUseCase(finder, factory)),
     new TextExtractionController(new TextExtractionUseCase(finder, new LocalTextExtractionServices())),
-    new PdfConversionController(new PdfConversionUseCase(
-      new DiskDocumentUpload(config), new DiskPdfConversion(config), workspace, config.maxConcurrent,
-    )),
   ).setup(app);
   const server = app.listen(0, '127.0.0.1');
   try {
