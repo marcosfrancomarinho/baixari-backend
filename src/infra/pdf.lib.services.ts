@@ -12,22 +12,32 @@ export class PdfLibServices implements PdfServices {
       return Readable.from([await readFile(files[0])]);
     }
 
-    const merged = await PDFDocument.create();
-    for (const file of files) {
-      const bytes = await readFile(file);
-      const extension = extname(file).toLowerCase();
+    const mergedDocument = await PDFDocument.create();
+    for (const filePath of files) {
+      const bytes = await readFile(filePath);
+      const extension = extname(filePath).toLowerCase();
       if (extension === '.pdf') {
-        const source = await PDFDocument.load(bytes);
-        const pages = await merged.copyPages(source, source.getPageIndices());
-        for (const page of pages) merged.addPage(page);
+        await this.appendPdf(mergedDocument, bytes);
       } else {
-        const image = extension === '.png'
-          ? await merged.embedPng(bytes)
-          : await merged.embedJpg(new Uint8Array(bytes));
-        const page = merged.addPage([image.width, image.height]);
-        page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+        await this.appendImage(mergedDocument, bytes, extension);
       }
     }
-    return Readable.from([Buffer.from(await merged.save())]);
+    return Readable.from([Buffer.from(await mergedDocument.save())]);
+  }
+
+  private async appendPdf(destination: PDFDocument, bytes: Buffer): Promise<void> {
+    const sourceDocument = await PDFDocument.load(bytes);
+    const pages = await destination.copyPages(sourceDocument, sourceDocument.getPageIndices());
+    for (const page of pages) {
+      destination.addPage(page);
+    }
+  }
+
+  private async appendImage(destination: PDFDocument, bytes: Buffer, extension: string): Promise<void> {
+    const image = extension === '.png'
+      ? await destination.embedPng(bytes)
+      : await destination.embedJpg(new Uint8Array(bytes));
+    const page = destination.addPage([image.width, image.height]);
+    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
   }
 }

@@ -3,7 +3,7 @@ import express from 'express';
 import { container } from './di/providers.js';
 import { Routers } from './presentation/routers/routers.js';
 
-function main() {
+function main(): void {
   const app = express();
   const port = process.env.PORT || 3000;
   app.use(cors());

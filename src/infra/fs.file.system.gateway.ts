@@ -4,10 +4,13 @@ import type { FileSystemGateway } from '../app/contracts/file.system.gateway.js'
 import type { DocumentKind } from '../app/request/document.request.js';
 
 export class FsFileSystemGateway implements FileSystemGateway {
-  public constructor(private pathCertificate: string, private pathProtocol: string) {}
+  public constructor(
+    private readonly certificateBasePath: string,
+    private readonly protocolBasePath: string,
+  ) { }
 
   public getBasePath(kind: DocumentKind): string {
-    return kind === 'protocol' ? this.pathProtocol : this.pathCertificate;
+    return kind === 'protocol' ? this.protocolBasePath : this.certificateBasePath;
   }
 
   public async isDirectory(path: string): Promise<boolean> {
@@ -15,7 +18,9 @@ export class FsFileSystemGateway implements FileSystemGateway {
       return (await stat(path)).isDirectory();
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        return false;
+      }
       throw error;
     }
   }
@@ -26,12 +31,15 @@ export class FsFileSystemGateway implements FileSystemGateway {
 
   private async listDirectory(path: string): Promise<string[]> {
     const entries = await readdir(path, { withFileTypes: true });
-    entries.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { numeric: true }));
+    entries.sort((first, second) => first.name.localeCompare(second.name, 'pt-BR', { numeric: true }));
     const files: string[] = [];
     for (const entry of entries) {
-      const file = join(path, entry.name);
-      if (entry.isDirectory()) files.push(...await this.listDirectory(file));
-      else if (entry.isFile()) files.push(file);
+      const entryPath = join(path, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...await this.listDirectory(entryPath));
+      } else if (entry.isFile()) {
+        files.push(entryPath);
+      }
     }
     return files;
   }

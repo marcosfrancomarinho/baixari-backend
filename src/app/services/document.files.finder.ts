@@ -4,7 +4,7 @@ import type { DocumentFiles } from '../model/document.files.js';
 import type { DocumentFormat, DocumentRequest } from '../request/document.request.js';
 
 export class DocumentFilesFinder {
-  public constructor(private readonly fileSystemGateway: FileSystemGateway) {}
+  public constructor(private readonly fileSystemGateway: FileSystemGateway) { }
 
   public async find<TFormat extends DocumentFormat>(request: DocumentRequest<TFormat>): Promise<DocumentFiles> {
     const basePath = this.fileSystemGateway.getBasePath(request.kind);
@@ -14,7 +14,8 @@ export class DocumentFilesFinder {
       throw new DocumentNotFoundError(request.notFoundMessage);
     }
 
-    const files = request.selectFiles(await this.fileSystemGateway.listFiles(directory));
+    const availableFiles = await this.fileSystemGateway.listFiles(directory);
+    const files = request.selectFiles(availableFiles);
     return Object.freeze({ directory, files });
   }
 }

@@ -7,7 +7,7 @@ export class FileDownloaderUseCase {
   public constructor(
     private readonly documentFilesFinder: DocumentFilesFinder,
     private readonly outputStrategyFactory: DownloadOutputStrategyFactory,
-  ) {}
+  ) { }
 
   public async execute(request: DocumentRequest<DownloadFormat>): Promise<DownloadOutput> {
     const strategy = this.outputStrategyFactory.create(request.format);

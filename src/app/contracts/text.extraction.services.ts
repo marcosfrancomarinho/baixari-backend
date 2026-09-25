@@ -11,4 +11,4 @@ export interface ExtractedPage {
   text: string;
 }
 
-export class TextExtractionError extends Error {}
+export class TextExtractionError extends Error { }
