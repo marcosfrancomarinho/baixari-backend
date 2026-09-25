@@ -19,7 +19,7 @@ export function conversionConfig(): ConversionConfig {
     tempRoot: process.env.PDF_TEMP_DIR || tmpdir(),
     ghostscript: process.env.GHOSTSCRIPT_PATH || (process.platform === 'win32' ? 'gswin64c' : 'gs'),
     maxConcurrent: readPositiveInteger('PDF_MAX_CONCURRENT', 1),
-    maxFileBytes: readPositiveInteger('PDF_MAX_FILE_BYTES', 50 * MEBIBYTE),
+    maxFileBytes: readPositiveInteger('PDF_MAX_FILE_BYTES', 200 * MEBIBYTE),
     maxImagePixels: readPositiveInteger('PDF_MAX_IMAGE_PIXELS', 40_000_000),
     imageMaxSide: readPositiveInteger('PDF_IMAGE_MAX_SIDE', 3000),
     minFreeBytes: readPositiveInteger('PDF_MIN_FREE_BYTES', GIBIBYTE),
