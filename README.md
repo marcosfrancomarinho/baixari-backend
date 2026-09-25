@@ -247,13 +247,122 @@ npm run build
 npm start
 ```
 
-Exemplo de configuração do Ghostscript no PowerShell, substituindo `<versao>` pela versão instalada:
+### Ghostscript no Windows
+
+Baixe o instalador para **Windows 64 bits** na [página oficial do Ghostscript](https://www.ghostscript.com/releases/gsdnld.html) e execute-o. O Ghostscript é instalado separadamente das dependências npm.
+
+No PowerShell, verifique se ele já está disponível no PATH:
+
+```powershell
+gswin64c --version
+```
+
+Se o comando não for reconhecido, localize o executável na pasta padrão de instalação:
+
+```powershell
+Get-ChildItem 'C:\Program Files\gs' -Filter gswin64c.exe -Recurse -ErrorAction SilentlyContinue
+```
+
+Configure o caminho encontrado, substituindo `<versao>` pela pasta da versão instalada. Use `gswin64c.exe`, o executável de linha de comando:
 
 ```powershell
 $env:GHOSTSCRIPT_PATH = 'C:\Program Files\gs\<versao>\bin\gswin64c.exe'
+& $env:GHOSTSCRIPT_PATH --version
+```
+
+Para persistir a configuração para seu usuário:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+  'GHOSTSCRIPT_PATH',
+  $env:GHOSTSCRIPT_PATH,
+  'User'
+)
+```
+
+A atribuição com `$env:` configura o terminal atual. A configuração persistente fica disponível para novos processos; reabra o terminal ou reinicie o VS Code para que ele receba a alteração.
+
+Na pasta do projeto, inicie a aplicação no terminal configurado:
+
+```powershell
+npm.cmd install
 npm.cmd run build
 npm.cmd start
 ```
+
+Para desenvolvimento, substitua os dois últimos comandos por `npm.cmd run dev`.
+
+Com o backend executando, abra outro terminal e envie documentos, ajustando os caminhos:
+
+```powershell
+curl.exe --fail-with-body -X POST http://localhost:3000/documents/convert/pdf -F "files=@C:\documentos\arquivo.pdf" -F "files=@C:\documentos\foto.jpg" --output documentos.pdf
+```
+
+### Ghostscript no Linux
+
+Instale o pacote da sua distribuição. No **Ubuntu ou Debian**:
+
+```bash
+sudo apt update
+sudo apt install ghostscript
+```
+
+No **Fedora**:
+
+```bash
+sudo dnf install ghostscript
+```
+
+Os pacotes estão disponíveis nos repositórios oficiais de [Ubuntu](https://packages.ubuntu.com/ghostscript) e [Fedora](https://packages.fedoraproject.org/pkgs/ghostscript/).
+
+Verifique a instalação e descubra o caminho do executável:
+
+```bash
+gs --version
+command -v gs
+```
+
+Se `gs` estiver no PATH do processo da aplicação, nenhuma variável adicional é necessária. Para configurar o caminho explicitamente e habilitar também os testes de integração com Ghostscript:
+
+```bash
+export GHOSTSCRIPT_PATH="$(command -v gs)"
+"$GHOSTSCRIPT_PATH" --version
+```
+
+Para persistir a configuração em terminais Bash, adicione ao seu `~/.bashrc` a linha abaixo, usando o caminho retornado por `command -v gs`:
+
+```bash
+export GHOSTSCRIPT_PATH='/usr/bin/gs'
+```
+
+Depois, abra outro terminal ou execute `source ~/.bashrc`. Na pasta do projeto, inicie o backend:
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+Para desenvolvimento, use `npm run dev`. As pastas de protocolos e certidões em `src/di/providers.ts` usam caminhos Windows por padrão; ajuste-as para diretórios Linux se utilizar essas consultas. A rota de upload não depende dessas pastas.
+
+Em outro terminal, envie documentos, ajustando os caminhos:
+
+```bash
+curl --fail-with-body -X POST http://localhost:3000/documents/convert/pdf \
+  -F 'files=@/home/usuario/documentos/arquivo.pdf' \
+  -F 'files=@/home/usuario/documentos/foto.jpg' \
+  --output documentos.pdf
+```
+
+### Uso e diagnóstico da configuração
+
+Nos exemplos de envio, uma resposta bem-sucedida salva `documentos.pdf` no diretório atual. Se o curl retornar erro HTTP, o arquivo de saída poderá conter a mensagem JSON de erro, não um PDF.
+
+- Reinicie o backend depois de alterar as variáveis: elas são lidas na inicialização.
+- Criar um arquivo `.env` sozinho não configura a aplicação; ela não o carrega automaticamente.
+- Se usar um serviço do Windows, systemd, PM2 ou contêiner, configure `GHOSTSCRIPT_PATH` no ambiente desse serviço. Ele pode não herdar as variáveis do seu terminal ou do `~/.bashrc`.
+- O usuário que executa a aplicação precisa conseguir executar o Ghostscript e gravar no diretório temporário (`PDF_TEMP_DIR`, se configurado).
+- Para conferir a integração após configurar a variável, execute `node --import tsx --test tests/pdf.conversion.test.ts` na pasta do projeto.
 
 Se o Ghostscript estiver indisponível, a rota de conversão retorna `503`. As rotas de consulta e extração de texto não dependem dele.
 
